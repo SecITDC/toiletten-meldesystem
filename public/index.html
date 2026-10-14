@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Schadensmeldung</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 500px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    label {
+      margin-top: 10px;
+      display: block;
+      font-weight: bold;
+    }
+
+    select, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      background: #2ecc71;
+      color: white;
+      border: none;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #27ae60;
+    }
+
+    button:disabled {
+      background: #95a5a6;
+      cursor: default;
+    }
+
+    .zeichen {
+      text-align: right;
+      font-size: 13px;
+      color: #777;
+    }
+
+    .success {
+      color: green;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .fehler {
+      color: #c0392b;
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>Schadensmeldung</h1>
+
+  <label for="gebaeude">In welchem Gebäude?</label>
+  <select id="gebaeude">
+    <option>A</option>
+    <option>B</option>
+    <option>C</option>
+    <option>D</option>
+    <option>L</option>
+    <option>Metallwerkstatt</option>
+    <option>Holzwerkstatt</option>
+    <option>Forum</option>
+    <option>Bauhalle 1</option>
+    <option>Bauhalle 2</option>
+    <option>Sporthalle 1</option>
+    <option>Sporthalle 2</option>
+  </select>
+
+  <label for="toilette">Auf welcher Toilette?</label>
+  <select id="toilette">
+    <option>Männer Toilette</option>
+    <option>Frauen Toilette</option>
+    <option>Behinderten Toilette</option>
+  </select>
+
+  <label for="problem">Was ist das Problem?</label>
+  <select id="problem">
+    <option>Tür kaputt</option>
+    <option>Toilette defekt</option>
+    <option>Toilette beschädigt</option>
+    <option>Licht kaputt</option>
+    <option>Fenster kaputt</option>
+    <option>Heizung defekt</option>
+    <option>Sonstiges</option>
+  </select>
+
+  <label for="beschreibung">Beschreibung</label>
+  <textarea id="beschreibung" rows="4" maxlength="500" placeholder="Beschreibe das Problem hier genauer..."></textarea>
+  <div class="zeichen"><span id="anzahl">0</span>/500</div>
+
+  <button id="senden">Meldung absenden</button>
+
+  <p id="meldung"></p>
+
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // Gebäude aus dem QR-Code vorauswählen, z.B. .../?gebaeude=B&toilette=Frauen%20Toilette
+  const parameter = new URLSearchParams(location.search);
+  for (const feld of ["gebaeude", "toilette"]) {
+    const wert = parameter.get(feld);
+    if (wert && [...$(feld).options].some((o) => o.value === wert)) $(feld).value = wert;
+  }
+
+  $("beschreibung").oninput = () => ($("anzahl").textContent = $("beschreibung").value.length);
+
+  function zeige(text, art) {
+    $("meldung").textContent = text;
+    $("meldung").className = art;
+  }
+
+  $("senden").onclick = async () => {
+    const meldung = {
+      gebaeude: $("gebaeude").value,
+      toilette: $("toilette").value,
+      problem: $("problem").value,
+      beschreibung: $("beschreibung").value,
+    };
+
+    // Die Meldung geht jetzt an den SERVER, nicht mehr in den Speicher des Handys.
+    $("senden").disabled = true;
+    try {
+      const antwort = await fetch("api/senden.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(meldung),
+      });
+      const daten = await antwort.json();
+      if (antwort.ok) {
+        zeige("Danke! Deine Meldung wurde anonym an den Hausmeister gesendet.", "success");
+        $("beschreibung").value = "";
+        $("anzahl").textContent = "0";
+      } else {
+        zeige(daten.fehler || "Fehler beim Senden.", "fehler");
+      }
+    } catch {
+      zeige("Keine Verbindung zum Server. Bist du im Schul-WLAN?", "fehler");
+    } finally {
+      $("senden").disabled = false;
+    }
+  };
+</script>
+
+</body>
+</html>

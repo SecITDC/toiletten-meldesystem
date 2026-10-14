@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Hausmeister – Meldungen</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      margin: 0;
+    }
+    .kopf {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .meldung, .login {
+      background: white;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+    }
+    .login {
+      max-width: 340px;
+      margin: 40px auto;
+    }
+    .login input, .login button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    .offen {
+      color: red;
+      font-weight: bold;
+    }
+    .erledigt {
+      color: green;
+      font-weight: bold;
+    }
+    .meldung.ist-erledigt {
+      opacity: .6;
+    }
+    button {
+      margin-top: 5px;
+      cursor: pointer;
+    }
+    .fehler {
+      color: #c0392b;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login hidden" id="login-bereich">
+  <h2>Hausmeister-Login</h2>
+  <input type="password" id="passwort" placeholder="Passwort" autocomplete="current-password">
+  <button id="login-knopf">Anmelden</button>
+  <p class="fehler" id="login-fehler"></p>
+</div>
+
+<!-- Meldungen -->
+<div class="hidden" id="liste-bereich">
+  <div class="kopf">
+    <h1>Hausmeister – Meldungen</h1>
+    <div>
+      <span id="anzahl-offen"></span>
+      <button id="neu-laden">Aktualisieren</button>
+      <button id="logout">Abmelden</button>
+    </div>
+  </div>
+  <div id="liste"></div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  async function api(datei, daten) {
+    const optionen = daten === undefined ? {} : {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(daten),
+    };
+    const antwort = await fetch("api/" + datei, optionen);
+    return { status: antwort.status, daten: await antwort.json() };
+  }
+
+  function zeigeLogin() {
+    $("login-bereich").classList.remove("hidden");
+    $("liste-bereich").classList.add("hidden");
+    $("passwort").focus();
+  }
+
+  async function laden() {
+    const { status, daten } = await api("abrufen.php");
+    if (status === 401) return zeigeLogin();
+    $("login-bereich").classList.add("hidden");
+    $("liste-bereich").classList.remove("hidden");
+    anzeigen(daten.meldungen);
+  }
+
+  // Ein Zeile "Titel: Wert" bauen. WICHTIG: textContent statt innerHTML.
+  // So wird alles, was ein Schüler eintippt, als normaler Text angezeigt und nie als
+  // Code ausgeführt. Das schließt die XSS-Lücke aus der alten Version.
+  function zeile(titel, wert) {
+    const p = document.createElement("div");
+    const b = document.createElement("b");
+    b.textContent = titel + ": ";
+    p.append(b, document.createTextNode(wert));
+    return p;
+  }
+
+  function anzeigen(meldungen) {
+    const liste = $("liste");
+    liste.replaceChildren();
+    const offen = meldungen.filter((m) => m.status === "Offen").length;
+    $("anzahl-offen").textContent = `${offen} offen`;
+
+    if (meldungen.length === 0) {
+      const p = document.createElement("p");
+      p.textContent = "Keine Meldungen vorhanden.";
+      liste.append(p);
+      return;
+    }
+
+    for (const m of meldungen) {
+      const div = document.createElement("div");
+      div.className = "meldung" + (m.status === "Offen" ? "" : " ist-erledigt");
+
+      const status = document.createElement("span");
+      status.className = m.status === "Offen" ? "offen" : "erledigt";
+      status.textContent = m.status;
+      const statusZeile = zeile("Status", "");
+      statusZeile.append(status);
+
+      div.append(
+        zeile("Gebäude", m.gebaeude),
+        zeile("Toilette", m.toilette),
+        zeile("Problem", m.problem),
+        zeile("Beschreibung", m.beschreibung || "–"),
+        statusZeile,
+        zeile("Uhrzeit", new Date(m.zeit).toLocaleString("de-DE")),
+      );
+
+      const knopf = document.createElement("button");
+      const neuerStatus = m.status === "Offen" ? "Repariert" : "Offen";
+      knopf.textContent = m.status === "Offen" ? "Als repariert markieren" : "Wieder öffnen";
+      knopf.onclick = async () => {
+        const { status } = await api("update_status.php", { id: m.id, status: neuerStatus });
+        if (status === 401) return zeigeLogin();
+        if (status !== 200) return alert("Fehler beim Speichern!");
+        laden();
+      };
+      div.append(knopf);
+      liste.append(div);
+    }
+  }
+
+  async function login() {
+    const { status } = await api("login.php", { passwort: $("passwort").value });
+    $("passwort").value = "";
+    if (status !== 200) {
+      $("login-fehler").textContent = "Falsches Passwort.";
+      return;
+    }
+    $("login-fehler").textContent = "";
+    laden();
+  }
+
+  $("login-knopf").onclick = login;
+  $("passwort").onkeydown = (e) => { if (e.key === "Enter") login(); };
+  $("neu-laden").onclick = laden;
+  $("logout").onclick = async () => { await api("logout.php", {}); zeigeLogin(); };
+
+  laden();
+  // Alle 60 Sekunden automatisch nach neuen Meldungen schauen.
+  setInterval(() => { if (!$("liste-bereich").classList.contains("hidden")) laden(); }, 60000);
+</script>
+
+</body>
+</html>
