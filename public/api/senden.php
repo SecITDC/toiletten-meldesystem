@@ -21,7 +21,13 @@ if (mb_strlen($beschreibung) > MAX_BESCHREIBUNG) {
 
 // Spam-Schutz: zu viele Meldungen vom selben Gerät in kurzer Zeit?
 $jetzt = time();
-$ip_hash = hash('sha256', $config['geheimnis'] . ($_SERVER['REMOTE_ADDR'] ?? ''));
+$ip = $_SERVER['REMOTE_ADDR'] ?? '';
+// Hinter einem Tunnel (ngrok usw.) kommen alle Besucher von 127.0.0.1. Nur dann zählt die echte IP,
+// die der Tunnel als letzten Eintrag in X-Forwarded-For anhängt (frühere Einträge kann jeder fälschen).
+if (in_array($ip, ['127.0.0.1', '::1'], true) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    $ip = trim(array_slice(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']), -1)[0]);
+}
+$ip_hash = hash('sha256', $config['geheimnis'] . $ip);
 db()->prepare('DELETE FROM sperre WHERE zeit < ?')->execute([$jetzt - 3600]);
 $zaehler = db()->prepare('SELECT COUNT(*) FROM sperre WHERE ip_hash = ? AND zeit > ?');
 $zaehler->execute([$ip_hash, $jetzt - 600]);
