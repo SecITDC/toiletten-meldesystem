@@ -92,7 +92,8 @@
       body: JSON.stringify(daten),
     };
     const antwort = await fetch("api/" + datei, optionen);
-    return { status: antwort.status, daten: await antwort.json() };
+    // Fehlerseiten von nginx (z. B. Login-Bremse) sind kein JSON.
+    return { status: antwort.status, daten: await antwort.json().catch(() => ({})) };
   }
 
   function zeigeLogin() {
@@ -170,7 +171,9 @@
     const { status } = await api("login.php", { passwort: $("passwort").value });
     $("passwort").value = "";
     if (status !== 200) {
-      $("login-fehler").textContent = "Falsches Passwort.";
+      $("login-fehler").textContent = status === 401
+        ? "Falsches Passwort."
+        : "Zu viele Versuche oder Serverfehler. Bitte kurz warten.";
       return;
     }
     $("login-fehler").textContent = "";

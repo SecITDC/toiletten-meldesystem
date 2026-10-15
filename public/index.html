@@ -157,7 +157,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(meldung),
       });
-      const daten = await antwort.json();
+      const daten = await antwort.json().catch(() => ({})); // Server-Fehler ohne JSON ist kein Verbindungsfehler
       if (antwort.ok) {
         zeige("Danke! Deine Meldung wurde anonym an den Hausmeister gesendet.", "success");
         $("beschreibung").value = "";
