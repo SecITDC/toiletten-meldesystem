@@ -1,4 +1,4 @@
-# Toiletten-Meldesystem (BBS Meppen)
+# Toiletten-Meldesystem 
 
 Schüler scannen einen QR-Code, melden einen Schaden an einer Toilette, und der Hausmeister sieht alle Meldungen auf seiner eigenen Seite.
 
