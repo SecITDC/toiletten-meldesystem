@@ -25,7 +25,8 @@ if ($verstecken) {
 }
 $passwort = preg_replace('/^\x{FEFF}/u', '', $passwort); // unsichtbares BOM-Zeichen entfernen
 if (mb_strlen($passwort) < 10) {
-    exit("Zu kurz, nichts geändert.\n");
+    fwrite(STDERR, "Zu kurz, nichts geändert.\n");
+    exit(1); // Fehlercode, damit install.sh abbricht statt ohne Passwort weiterzumachen
 }
 
 $config['hausmeister_passwort_hash'] = password_hash($passwort, PASSWORD_DEFAULT);
